@@ -149,11 +149,11 @@ function Login() {
   const [password, setPassword] = useState('');
   const signIn = () => {
     const normalized = username.trim().toLowerCase();
-    const selected = students.find((student) =>
+    const exactStudent = students.find((student) =>
       student.username.toLowerCase() === normalized ||
-      student.email.toLowerCase() === normalized ||
-      student.university === institution
-    ) || students[0];
+      student.email.toLowerCase() === normalized
+    );
+    const selected = exactStudent || students.find((student) => student.university === institution) || students[0];
     selectStudent(selected.id);
     navigate(`/${role}`);
   };
