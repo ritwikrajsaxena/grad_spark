@@ -147,14 +147,34 @@ function Login() {
   const [institution, setInstitution] = useState(universities[0].name);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const staffAccounts = {
+    admin: { username: 'admin.navigator', password: 'Navigator2026!' },
+    registrar: { username: 'registrar.navigator', password: 'Navigator2026!' },
+    maintenance: { username: 'it.navigator', password: 'Navigator2026!' }
+  };
   const signIn = () => {
     const normalized = username.trim().toLowerCase();
-    const exactStudent = students.find((student) =>
-      student.username.toLowerCase() === normalized ||
-      student.email.toLowerCase() === normalized
-    );
-    const selected = exactStudent || students.find((student) => student.university === institution) || students[0];
-    selectStudent(selected.id);
+    const expectedPassword = 'Navigator2026!';
+    setError('');
+    if (role === 'student') {
+      const exactStudent = students.find((student) =>
+        student.username.toLowerCase() === normalized ||
+        student.email.toLowerCase() === normalized
+      );
+      if (!exactStudent || password !== expectedPassword) {
+        setError('Username or password was not recognized.');
+        return;
+      }
+      selectStudent(exactStudent.id);
+      navigate('/student');
+      return;
+    }
+    const staffAccount = staffAccounts[role];
+    if (!staffAccount || normalized !== staffAccount.username || password !== staffAccount.password) {
+      setError('Username or password was not recognized.');
+      return;
+    }
     navigate(`/${role}`);
   };
   return <><Header /><main className="login-page"><section className="login-card">
@@ -165,6 +185,7 @@ function Login() {
     <label>University / Institution<select value={institution} onChange={e => setInstitution(e.target.value)}>{universities.map((u) => <option key={u.id}>{u.name}</option>)}</select></label>
     <label>Username<input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" /></label>
     <label>Password<input value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete="current-password" /></label>
+    {error && <p className="error-message" role="alert">{error}</p>}
     <button className="primary" onClick={signIn}>Sign In</button>
   </section></main></>;
 }

@@ -65,6 +65,7 @@ h1 { font-size: clamp(2rem, 4vw, 4rem); line-height: 1.05; margin: 0; letter-spa
 .clean-list { margin: 0; padding-left: 1.1rem; line-height: 1.9; }
 .login-page { min-height: calc(100vh - 64px); display: grid; place-items: center; padding: 1rem; }
 .login-card { width: min(500px, 100%); display: grid; gap: 1rem; }
+.error-message { margin: 0; color: #8a1f1f; background: #fff0f0; border: 1px solid #f1b7b7; border-radius: 6px; padding: 0.75rem; font-weight: 700; }
 label { display: grid; gap: 0.4rem; font-weight: 700; color: var(--navy); }
 input, select { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 0.7rem; background: white; color: var(--ink); min-height: 42px; }
 .form-grid, .filters { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1rem; align-items: end; }
