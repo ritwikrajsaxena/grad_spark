@@ -18,6 +18,7 @@ function AppProvider({ children }) {
   const [requirements, setRequirements] = useState(() => storageGet('requirements', seedData.degreeRequirements));
   const [students, setStudents] = useState(() => storageGet('students', seedData.students));
   const [selectedStudentId, setSelectedStudentId] = useState(() => storageGet('selectedStudentId', seedData.students[0].id));
+  const [authenticatedRole, setAuthenticatedRole] = useState(() => storageGet('authenticatedRole', ''));
   const [updates, setUpdates] = useState(() => storageGet('updates', seedData.updates));
   const profile = students.find((student) => student.id === selectedStudentId) || students[0];
 
@@ -39,6 +40,14 @@ function AppProvider({ children }) {
     setSelectedStudentId(id);
     storageSet('selectedStudentId', id);
   };
+  const authenticate = (role) => {
+    setAuthenticatedRole(role);
+    storageSet('authenticatedRole', role);
+  };
+  const clearAuthentication = () => {
+    setAuthenticatedRole('');
+    storageSet('authenticatedRole', '');
+  };
 
   const value = useMemo(() => ({
     ...seedData,
@@ -47,13 +56,16 @@ function AppProvider({ children }) {
     requirements,
     students,
     profile,
+    authenticatedRole,
     updates,
     saveCourses,
     saveFaculty,
     saveRequirements,
     saveProfile,
-    selectStudent
-  }), [courses, faculty, requirements, students, profile, updates]);
+    selectStudent,
+    authenticate,
+    clearAuthentication
+  }), [courses, faculty, requirements, students, profile, authenticatedRole, updates]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 const useApp = () => useContext(AppContext);
@@ -142,7 +154,7 @@ function Landing() {
 
 function Login() {
   const navigate = useNavigate();
-  const { universities, students, selectStudent } = useApp();
+  const { universities, students, selectStudent, authenticate, clearAuthentication } = useApp();
   const [role, setRole] = useState('student');
   const [institution, setInstitution] = useState(universities[0].name);
   const [username, setUsername] = useState('');
@@ -157,6 +169,7 @@ function Login() {
     const normalized = username.trim().toLowerCase();
     const expectedPassword = 'Navigator2026!';
     setError('');
+    clearAuthentication();
     if (role === 'student') {
       const exactStudent = students.find((student) =>
         student.username.toLowerCase() === normalized ||
@@ -167,6 +180,7 @@ function Login() {
         return;
       }
       selectStudent(exactStudent.id);
+      authenticate('student');
       navigate('/student');
       return;
     }
@@ -175,6 +189,7 @@ function Login() {
       setError('Username or password was not recognized.');
       return;
     }
+    authenticate(role);
     navigate(`/${role}`);
   };
   return <><Header /><main className="login-page"><section className="login-card">
@@ -312,13 +327,18 @@ function toLabel(key) {
 }
 function ResponsiveTable({ headers, rows }) { return <div className="table-wrap"><table><thead><tr>{headers.map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{rows.length ? rows.map((r,i)=><tr key={i}>{r.map((c,j)=><td key={j}>{c}</td>)}</tr>) : <tr><td colSpan={headers.length}>No data available.</td></tr>}</tbody></table></div>; }
 
+function RequireRole({ role, children }) {
+  const { authenticatedRole } = useApp();
+  return authenticatedRole === role ? children : <Navigate to="/login" replace />;
+}
+
 function StudentRoutes() { return <Layout nav={studentNav} title="Student Portal"><Routes><Route index element={<StudentDashboard/>}/><Route path="profile" element={<Profile/>}/><Route path="record" element={<AcademicRecord/>}/><Route path="progress" element={<DegreeProgress/>}/><Route path="planner" element={<Planner/>}/><Route path="milestones" element={<Milestones/>}/><Route path="health" element={<Health/>}/><Route path="courses" element={<CourseExplorer/>}/><Route path="transparency" element={<Transparency/>}/><Route path="announcements" element={<Announcements/>}/></Routes></Layout>; }
 function AdminRoutes() { return <Layout nav={adminNav} title="Administration"><Routes><Route index element={<AdminDashboard/>}/><Route path="integrations" element={<Integrations/>}/><Route path="courses" element={<AdminCourses/>}/><Route path="faculty" element={<AdminFaculty/>}/><Route path="requirements" element={<AdminRequirements/>}/>{['info','colleges','departments','programs','milestones','announcements','documents','history'].map(p=><Route key={p} path={p} element={<SimpleAdminPage title={toLabel(p)}/>}/>)}</Routes></Layout>; }
 function RegistrarRoutes() { return <Layout nav={registrarNav} title="Dean / Registrar"><Routes><Route index element={<RegistrarOverview/>}/><Route path="courses" element={<RegistrarCourses/>}/><Route path="assessment" element={<AssessmentReview/>}/><Route path="assignment" element={<FacultyAssignment/>}/>{['faculty','curriculum','audit'].map(p=><Route key={p} path={p} element={<SimpleAdminPage title={toLabel(p)}/>}/>)}</Routes></Layout>; }
 function MaintenanceRoutes() { return <Layout nav={itNav} title="Maintenance"><Routes><Route index element={<MaintenanceOverview/>}/>{['users','institutions','logs','backups','notifications','config'].map(p=><Route key={p} path={p} element={p==='logs'?<SystemLogs/>:<SimpleAdminPage title={toLabel(p)}/>}/>)}</Routes></Layout>; }
 
 function App() {
-  return <AppProvider><HashRouter><Routes><Route path="/" element={<Landing/>}/><Route path="/login" element={<Login/>}/><Route path="/student/*" element={<StudentRoutes/>}/><Route path="/admin/*" element={<AdminRoutes/>}/><Route path="/registrar/*" element={<RegistrarRoutes/>}/><Route path="/maintenance/*" element={<MaintenanceRoutes/>}/><Route path="*" element={<Navigate to="/" replace/>}/></Routes></HashRouter></AppProvider>;
+  return <AppProvider><HashRouter><Routes><Route path="/" element={<Landing/>}/><Route path="/login" element={<Login/>}/><Route path="/student/*" element={<RequireRole role="student"><StudentRoutes/></RequireRole>}/><Route path="/admin/*" element={<RequireRole role="admin"><AdminRoutes/></RequireRole>}/><Route path="/registrar/*" element={<RequireRole role="registrar"><RegistrarRoutes/></RequireRole>}/><Route path="/maintenance/*" element={<RequireRole role="maintenance"><MaintenanceRoutes/></RequireRole>}/><Route path="*" element={<Navigate to="/" replace/>}/></Routes></HashRouter></AppProvider>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);
