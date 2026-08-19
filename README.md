@@ -14,7 +14,7 @@ The application is designed to sit above existing university systems of record s
 
 ## Intended Deployment Behavior
 
-In production, Academic Navigator should be deployed as a university-authorized decision-support layer above existing institutional systems. It is not meant to replace MyU, JOESS, SIS, LMS, registrar, degree-audit, HR, financial-aid, graduate-education, or course-catalog systems. Those systems remain the systems of record.
+In production, Academic Navigator should be deployed as a university-authorized decision-support layer above existing institutional systems. It is not meant to replace SIS, LMS, registrar, degree-audit, HR, financial-aid, graduate-education, course-catalog systems, and web-based student enterprise portals used by universities to manage academics and personal information. Those systems remain the systems of record.
 
 After institutional sign-in, the application should receive authorized student facts from university data integrations:
 
