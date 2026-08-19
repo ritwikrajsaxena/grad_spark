@@ -16,6 +16,7 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, B
 a { color: inherit; text-decoration: none; }
 button, input, select { font: inherit; }
 button, .primary { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 0.7rem 0.95rem; cursor: pointer; min-height: 42px; }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #8bc3ec; outline-offset: 2px; }
 .primary { display: inline-flex; align-items: center; justify-content: center; background: var(--blue); color: white; border-color: var(--blue); font-weight: 700; }
 .topbar { position: sticky; top: 0; z-index: 5; height: 64px; display: flex; align-items: center; gap: 1rem; padding: 0 1.25rem; background: white; border-bottom: 1px solid var(--line); }
@@ -66,6 +67,10 @@ h1 { font-size: clamp(2rem, 4vw, 4rem); line-height: 1.05; margin: 0; letter-spa
 .login-page { min-height: calc(100vh - 64px); display: grid; place-items: center; padding: 1rem; }
 .login-card { width: min(500px, 100%); display: grid; gap: 1rem; }
 .error-message { margin: 0; color: #8a1f1f; background: #fff0f0; border: 1px solid #f1b7b7; border-radius: 6px; padding: 0.75rem; font-weight: 700; }
+.warning-box { margin-top: 1rem; color: #7a4b00; background: #fff7df; border: 1px solid #efcf81; border-radius: 6px; padding: 0.75rem; font-weight: 700; }
+.warning-box p { margin: 0.25rem 0; }
+.success-message { margin: 1rem 0 0; color: var(--good); font-weight: 800; }
+.button-row { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem; }
 label { display: grid; gap: 0.4rem; font-weight: 700; color: var(--navy); }
 input, select { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 0.7rem; background: white; color: var(--ink); min-height: 42px; }
 .form-grid, .filters { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1rem; align-items: end; }

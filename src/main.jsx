@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter, Link, NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import {
@@ -19,6 +19,7 @@ function AppProvider({ children }) {
   const [students, setStudents] = useState(() => storageGet('students', seedData.students));
   const [selectedStudentId, setSelectedStudentId] = useState(() => storageGet('selectedStudentId', seedData.students[0].id));
   const [authenticatedRole, setAuthenticatedRole] = useState(() => storageGet('authenticatedRole', ''));
+  const [assessmentAssignments, setAssessmentAssignments] = useState(() => storageGet('assessmentAssignments', {}));
   const [updates, setUpdates] = useState(() => storageGet('updates', seedData.updates));
   const profile = students.find((student) => student.id === selectedStudentId) || students[0];
 
@@ -35,6 +36,12 @@ function AppProvider({ children }) {
     setStudents(nextStudents);
     storageSet('students', nextStudents);
     pushUpdate('Student verification details updated.');
+  };
+  const saveAssessmentAssignment = (courseCode, assignment) => {
+    const next = { ...assessmentAssignments, [courseCode]: assignment };
+    setAssessmentAssignments(next);
+    storageSet('assessmentAssignments', next);
+    pushUpdate(`Assessment assignment saved for ${courseCode}.`);
   };
   const selectStudent = (id) => {
     setSelectedStudentId(id);
@@ -57,15 +64,17 @@ function AppProvider({ children }) {
     students,
     profile,
     authenticatedRole,
+    assessmentAssignments,
     updates,
     saveCourses,
     saveFaculty,
     saveRequirements,
     saveProfile,
+    saveAssessmentAssignment,
     selectStudent,
     authenticate,
     clearAuthentication
-  }), [courses, faculty, requirements, students, profile, authenticatedRole, updates]);
+  }), [courses, faculty, requirements, students, profile, authenticatedRole, assessmentAssignments, updates]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 const useApp = () => useContext(AppContext);
@@ -317,7 +326,58 @@ function SimpleAdminPage({ title }) { return <><PageTitle title={title}/><sectio
 
 function RegistrarOverview() { return <><PageTitle title="Dean / Registrar Portal" /><div className="cards"><Card title="Courses Reviewed" value="18"/><Card title="Assessment Items" value="31"/><Card title="Faculty Assignments" value="12"/><Card title="Curriculum Status" value="Current"/></div><Updates /></>; }
 function AssessmentReview() { const { courses }=useApp(); return <><PageTitle title="Assessment Transparency" /><section className="panel"><ResponsiveTable headers={['Course','Faculty','Enrollment','Assessment','Exam','Grading','Student Reviews','Peer Assessment','Departmental Appraisal']} rows={courses.map(c=>[`${c.code} ${c.title}`,c.instructor,c.enrollment,c.assessmentMethod,c.examFormat,c.grading,c.studentReviews,c.peerTeachingAssessment,c.departmentalAppraisal])}/></section></>; }
-function FacultyAssignment() { const { courses, faculty }=useApp(); const [course,setCourse]=useState(courses[0].code); const selected=courses.find(c=>c.code===course)||courses[0]; const appropriate=faculty.filter(f=>f.department===selected.department && f.availability==='Available'); return <><PageTitle title="Faculty Assignment" subtitle="Assign suitable faculty for exam creation, evaluation, and moderation." /><section className="panel form-grid"><label>Selected Course<select value={course} onChange={e=>setCourse(e.target.value)}>{courses.map(c=><option key={c.code} value={c.code}>{c.code} - {c.title}</option>)}</select></label>{['Primary Instructor','Alternate Faculty for Exam/Paper Creation','Faculty Responsible for Evaluation','Faculty Overseer / Moderator'].map(label=><label key={label}>{label}<select>{appropriate.map(f=><option key={f.name}>{f.name}</option>)}</select></label>)}</section><section className="panel"><h2>Appropriate Faculty</h2><ResponsiveTable headers={['Faculty','Expertise','Availability','Current Workload','Conflict']} rows={appropriate.map(f=>[f.name,f.specialization,f.availability,f.load,f.conflict])}/></section></>; }
+function FacultyAssignment() {
+  const { courses, faculty, assessmentAssignments, saveAssessmentAssignment } = useApp();
+  const [course, setCourse] = useState(courses[0].code);
+  const [savedMessage, setSavedMessage] = useState('');
+  const selected = courses.find(c => c.code === course) || courses[0];
+  const appropriate = faculty.filter(f => f.department === selected.department && f.availability === 'Available');
+  const instructor = appropriate.find(f => f.name === selected.instructor) || appropriate[0];
+  const independent = appropriate.filter(f => f.name !== selected.instructor);
+  const paperFaculty = independent[0] || instructor;
+  const evaluationFaculty = independent.find(f => f.name !== paperFaculty.name) || independent[0] || instructor;
+  const moderator = independent.find(f => ![paperFaculty.name, evaluationFaculty.name].includes(f.name)) || independent[0] || instructor;
+  const highStakes = /closed book|quiz|midterm|examination/i.test(`${selected.examFormat} ${selected.grading} ${selected.assessmentMethod}`);
+  const suggestedAssignment = {
+    instructor: instructor?.name || '',
+    paperCreator: paperFaculty?.name || '',
+    evaluator: evaluationFaculty?.name || '',
+    moderator: moderator?.name || ''
+  };
+  const [draft, setDraft] = useState(assessmentAssignments[selected.code] || suggestedAssignment);
+  useEffect(() => {
+    setDraft(assessmentAssignments[selected.code] || suggestedAssignment);
+    setSavedMessage('');
+  }, [course, assessmentAssignments, selected.code, suggestedAssignment.instructor, suggestedAssignment.paperCreator, suggestedAssignment.evaluator, suggestedAssignment.moderator]);
+  const conflicts = [];
+  if (highStakes && draft.paperCreator === draft.evaluator) conflicts.push('For high-accountability assessments, paper creation and evaluation should be assigned to separate faculty.');
+  if (highStakes && draft.instructor === draft.paperCreator) conflicts.push('For high-accountability assessments, the course instructor should not be the only assessment paper creator.');
+  if (highStakes && draft.instructor === draft.evaluator) conflicts.push('For high-accountability assessments, the course instructor should not be the only evaluator.');
+  const hasConflicts = conflicts.length > 0;
+  const setRole = (key, value) => setDraft({ ...draft, [key]: value });
+  const facultySelect = (key) => <select value={draft[key] || ''} onChange={(event) => setRole(key, event.target.value)}>{appropriate.map(f=><option key={f.name} value={f.name}>{f.name}</option>)}</select>;
+  const save = () => {
+    if (hasConflicts) return;
+    saveAssessmentAssignment(selected.code, { ...draft, approvedAt: 'Just now', approvedBy: 'Dean / Registrar' });
+    setSavedMessage('Assignment saved for registrar review.');
+  };
+  const rows = [
+    ['Course Instructor', facultySelect('instructor'), 'Runs the course and delivers instruction.', highStakes ? 'Instructional ownership is recorded separately from assessment creation and evaluation.' : 'Instructional ownership recorded.'],
+    ['Assessment Paper Creator', facultySelect('paperCreator'), 'Forms exam papers, major quizzes, prompts, and rubrics.', 'Can be changed by Dean / Registrar before approval.'],
+    ['Evaluation Faculty', facultySelect('evaluator'), 'Evaluates exams, major quizzes, and midterm work against the approved rubric.', 'Independent evaluation supports student and instructor accountability.'],
+    ['Moderator / Reviewer', facultySelect('moderator'), 'Reviews paper quality, grading consistency, and conflict concerns.', 'Provides oversight before results are finalized.']
+  ];
+  return <><PageTitle title="Faculty Assignment" subtitle="Separate instructional, assessment-creation, evaluation, and moderation responsibilities for accountable course review." />
+    <section className="panel form-grid">
+      <label>Selected Course<select value={course} onChange={e=>setCourse(e.target.value)}>{courses.map(c=><option key={c.code} value={c.code}>{c.code} - {c.title}</option>)}</select></label>
+      <label>Assessment Risk<input readOnly value={highStakes ? 'Higher accountability: quizzes/exams/midterms detected' : 'Standard accountability'} /></label>
+      <label>Assessment Format<input readOnly value={`${selected.assessmentMethod}; ${selected.examFormat}`} /></label>
+      <label>Grading Structure<input readOnly value={selected.grading} /></label>
+    </section>
+    <section className="panel"><h2>Suggested Assignment For Approval</h2><p className="muted">Academic Navigator recommends separation of duties. Dean / Registrar selects the official faculty assignments.</p><ResponsiveTable headers={['Role','Assigned Faculty','Responsibility','Accountability Control']} rows={rows}/>{hasConflicts && <div className="warning-box" role="alert">{conflicts.map((conflict) => <p key={conflict}>{conflict}</p>)}</div>}<div className="button-row"><button className="primary" onClick={save} disabled={hasConflicts}>Save Assignment</button><button onClick={() => setDraft(suggestedAssignment)}>Reset To Suggested</button></div>{savedMessage && <p className="success-message">{savedMessage}</p>}</section>
+    <section className="panel"><h2>Available Faculty Pool</h2><ResponsiveTable headers={['Faculty','Expertise','Availability','Current Workload','Conflict']} rows={appropriate.map(f=>[f.name,f.specialization,f.availability,f.load,f.conflict])}/></section>
+  </>;
+}
 function RegistrarCourses() { const { courses }=useApp(); return <><PageTitle title="Dean Course Review"/><section className="panel"><ResponsiveTable headers={['Course','Faculty','Enrollment','Assessment Format','Grading Criteria','Course Health','Curriculum Status']} rows={courses.map(c=>[`${c.code} ${c.title}`,c.instructor,c.enrollment,c.assessmentMethod,c.grading,c.quality,c.curriculumStatus])}/></section></>; }
 function MaintenanceOverview() { return <><PageTitle title="IT / Maintenance Portal" /><div className="cards"><Card title="System Status" value="Operational"/><Card title="Data Layer" value="Connected"/><Card title="Authentication" value="Institutional"/><Card title="Last Backup" value="Today"/><Card title="Active Institutions" value="2"/><Card title="Users" value="24"/></div><SystemLogs /></>; }
 function SystemLogs() { const { logs }=useApp(); return <section className="panel"><h2>System Activity Log</h2>{logs.map(l=><p className="update" key={l}>{l}</p>)}</section>; }
